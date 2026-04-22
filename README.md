@@ -6,8 +6,6 @@ After deployment is complete, enter the `secret variable` in the control panel
 
 An IBKR dashboard that displays assets and positions in real time with read-only access
 
-![alt text](image-1.png)
-
 ![alt text](image.png)
 
 ## Oauth1.0a

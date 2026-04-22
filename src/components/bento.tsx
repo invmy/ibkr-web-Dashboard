@@ -1,5 +1,13 @@
 import * as React from "react";
-import { Wallet, ArrowUpRight, ArrowDownRight, Activity } from "lucide-react";
+import {
+  Wallet,
+  ArrowUpRight,
+  ArrowDownRight,
+  Activity,
+  TrendingUp,
+  Zap,
+  PieChart,
+} from "lucide-react";
 
 import {
   Card,
@@ -279,47 +287,81 @@ export function BentoDashboard() {
         </Item>
 
         {/* Asset Allocation Bento with Progress Bars */}
-        <div className="grid grid-cols-1 gap-6">
-          <Card className="p-8 flex flex-col gap-8 border-muted/60 shadow-sm overflow-hidden hover:border-muted-foreground/20 transition-colors">
-            <div className="flex flex-col gap-1.5">
-              <div className="flex items-center gap-2 mb-1">
-                <div className="p-2 bg-muted/50 rounded-lg">
-                  <Activity className="w-4 h-4 text-primary" />
-                </div>
-                <CardTitle className="text-xl font-black tracking-tight">
-                  Asset Allocation
-                </CardTitle>
-              </div>
-              <CardDescription className="text-[10px] font-black uppercase tracking-[0.15em] opacity-40">
-                Distribution by Asset Class
-              </CardDescription>
+        <div className="flex flex-col gap-6">
+          <div className="flex flex-col gap-1 px-2">
+            <h2 className="text-2xl sm:text-3xl font-black tracking-tighter uppercase italic gradient-text">
+              Asset Allocation
+            </h2>
+            <div className="flex items-center gap-2">
+              <Badge
+                variant="outline"
+                className="text-[9px] font-black uppercase tracking-widest border-primary/20 text-primary"
+              >
+                Distribution
+              </Badge>
             </div>
-            <div className="flex flex-col gap-6">
-              {assetAllocation.map((item: any, i: number) => (
-                <div key={i} className="flex flex-col gap-2.5 group">
-                  <div className="flex justify-between items-end">
-                    <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground group-hover:text-foreground transition-colors">
-                      {item.name}
-                    </span>
-                    <span className="text-xs font-black tabular-nums">
-                      {formatCurrency(item.value, baseCurrency)}
-                    </span>
+          </div>
+
+          <div className="flex flex-col gap-4">
+            {/* Cash - Full Width */}
+            {assetAllocation.find((a: any) => a.name === "CASH") && (
+              <Item
+                variant="outline"
+                className="p-6 border-muted/60 shadow-sm flex items-center justify-between group bg-muted/20 border-primary/10"
+              >
+                <ItemTitle className="text-xl font-black tracking-tight uppercase text-primary">
+                  Cash
+                </ItemTitle>
+
+                <div className="flex flex-col items-end gap-1.5">
+                  <Badge
+                    variant="outline"
+                    className="text-[10px] font-black border-primary/20 text-primary px-2 py-0.5"
+                  >
+                    {assetAllocation
+                      .find((a: any) => a.name === "CASH")
+                      ?.percentage.toFixed(1)}
+                    % WEIGHT
+                  </Badge>
+                  <div className="font-black text-3xl tabular-nums tracking-tighter gradient-text">
+                    {formatCurrency(
+                      assetAllocation.find((a: any) => a.name === "CASH")?.value,
+                      baseCurrency,
+                    )}
                   </div>
-                  {item.name !== "CASH" && (
-                    <div className="h-1 w-full bg-muted/40 rounded-full overflow-hidden">
-                      <div
-                        className="h-full transition-all duration-1000 ease-out"
-                        style={{
-                          backgroundColor: item.fill,
-                          width: `${item.percentage}%`,
-                        }}
-                      />
-                    </div>
-                  )}
                 </div>
-              ))}
+              </Item>
+            )}
+
+            {/* Other Assets - Responsive Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {assetAllocation
+                .filter((a: any) => a.name !== "CASH")
+                .map((item: any, i: number) => (
+                  <Item
+                    key={i}
+                    variant="outline"
+                    className="p-5 border-muted/60 shadow-sm flex items-center justify-between group hover:border-primary/20 transition-all"
+                  >
+                    <ItemTitle className="text-lg font-black tracking-tight uppercase">
+                      {item.name}
+                    </ItemTitle>
+
+                    <div className="flex flex-col items-end gap-1.5">
+                      <Badge
+                        variant="secondary"
+                        className="text-[9px] font-black px-1.5 py-0"
+                      >
+                        {item.percentage.toFixed(1)}%
+                      </Badge>
+                      <div className="font-black text-xl tabular-nums tracking-tight text-primary/80">
+                        {formatCurrency(item.value, baseCurrency)}
+                      </div>
+                    </div>
+                  </Item>
+                ))}
             </div>
-          </Card>
+          </div>
         </div>
 
         {/* Holdings List */}

@@ -66,6 +66,8 @@ export const server = {
         const allocationMap = (positions || []).reduce(
           (acc: Record<string, number>, pos: any) => {
             const assetClass = pos.assetClass || "OTHER";
+            if (assetClass === "CASH") return acc; // Skip cash in positions to avoid double counting
+
             const mktValueBase =
               (pos.mktValue || 0) * getExchangeRate(pos.currency);
             acc[assetClass] = (acc[assetClass] || 0) + mktValueBase;
@@ -78,18 +80,29 @@ export const server = {
           allocationMap["CASH"] = (allocationMap["CASH"] || 0) + summary.cash;
         }
 
-        const totalValue = Object.values(allocationMap).reduce(
+        const sumOfValues = Object.values(allocationMap).reduce(
           (a, b) => a + b,
           0,
         );
+        const totalValue = Math.max(sumOfValues, summary.totalNetLiquidation);
+
         const assetAllocation = Object.entries(allocationMap)
-          .map(([name, value], index) => ({
-            name,
-            value,
-            percentage: totalValue > 0 ? (value / totalValue) * 100 : 0,
-            fill: `var(--chart-${(index % 5) + 1})`,
-          }))
-          .sort((a, b) => b.value - a.value);
+          .sort((a, b) => b[1] - a[1])
+          .map(([name, value], index) => {
+            const colors = [
+              "oklch(0.646 0.222 19.05)",
+              "oklch(0.6 0.118 184.704)",
+              "oklch(0.398 0.07 227.392)",
+              "oklch(0.828 0.189 84.429)",
+              "oklch(0.769 0.188 70.08)",
+            ];
+            return {
+              name,
+              value,
+              percentage: totalValue > 0 ? (value / totalValue) * 100 : 0,
+              fill: name === "CASH" ? colors[1] : colors[index % colors.length],
+            };
+          });
 
         // 3. Holdings Logic
         const holdingsList = (positions || []).map((pos: any) => ({
