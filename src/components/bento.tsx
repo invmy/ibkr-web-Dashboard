@@ -171,6 +171,7 @@ export function BentoDashboard() {
   const totalAssetsCount = portfolioData?.totalAssetsCount || 0;
 
   const currentTotalAssets = summary.totalNetLiquidation || 0;
+  const currentRealizedProfit = summary.realizedPnl || 0;
   const currentUnrealizedProfit = summary.unrealizedPnl || 0;
   const currentInterest = summary.interest || 0;
   const baseCurrency = summary.currency || "USD";
@@ -323,9 +324,9 @@ export function BentoDashboard() {
 
         {/* Holdings List */}
         <div className="flex flex-col gap-6 mt-4">
-          <div className="flex justify-between items-center px-2">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 px-2">
             <div className="flex flex-col gap-1">
-              <h2 className="text-3xl font-black tracking-tighter uppercase italic gradient-text">
+              <h2 className="text-2xl sm:text-3xl font-black tracking-tighter uppercase italic gradient-text">
                 Holdings
               </h2>
               <div className="flex items-center gap-2">
@@ -347,18 +348,51 @@ export function BentoDashboard() {
               </div>
             </div>
 
-            <div className="flex items-center gap-3">
-              <Activity className="w-5 h-5 text-emerald-500" />
+            <div className="flex items-center gap-4 sm:gap-8 w-full md:w-auto justify-between md:justify-end">
               <div className="flex flex-col items-end">
                 <span
-                  className={`text-2xl font-black tabular-nums ${currentUnrealizedProfit >= 0 ? "text-emerald-500" : "text-rose-400"}`}
+                  className={`text-2xl sm:text-4xl font-black tracking-tighter tabular-nums ${
+                    currentRealizedProfit + currentUnrealizedProfit >= 0
+                      ? "text-emerald-500"
+                      : "text-rose-400"
+                  }`}
                 >
-                  {currentUnrealizedProfit >= 0 ? "+" : ""}
-                  {formatCurrency(currentUnrealizedProfit, baseCurrency)}
+                  {currentRealizedProfit + currentUnrealizedProfit >= 0
+                    ? "+"
+                    : ""}
+                  {formatCurrency(
+                    currentRealizedProfit + currentUnrealizedProfit,
+                    baseCurrency,
+                  )}
                 </span>
-                <span className="text-[9px] text-muted-foreground uppercase font-black tracking-widest opacity-40">
-                  Unrealized PNL
+                <span className="text-[8px] sm:text-[10px] text-muted-foreground uppercase font-black tracking-widest opacity-50 text-right">
+                  Total PNL
                 </span>
+              </div>
+
+              <div className="h-8 sm:h-10 w-px bg-muted/40" />
+
+              <div className="flex flex-col gap-0.5 sm:gap-1 min-w-[80px]">
+                <div className="flex items-center gap-2 sm:gap-3 justify-end">
+                  <span className="text-[8px] sm:text-[9px] text-muted-foreground uppercase font-black opacity-30 tracking-widest">
+                    Realized
+                  </span>
+                  <span
+                    className={`text-xs sm:text-sm font-black tabular-nums ${currentRealizedProfit >= 0 ? "text-emerald-500/70" : "text-rose-400/70"}`}
+                  >
+                    {formatCurrency(currentRealizedProfit, baseCurrency)}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 sm:gap-3 justify-end">
+                  <span className="text-[8px] sm:text-[9px] text-muted-foreground uppercase font-black opacity-30 tracking-widest">
+                    Unrealized
+                  </span>
+                  <span
+                    className={`text-xs sm:text-sm font-black tabular-nums ${currentUnrealizedProfit >= 0 ? "text-emerald-500/70" : "text-rose-400/70"}`}
+                  >
+                    {formatCurrency(currentUnrealizedProfit, baseCurrency)}
+                  </span>
+                </div>
               </div>
             </div>
           </div>
@@ -376,51 +410,74 @@ export function BentoDashboard() {
                     <Item
                       key={`${holding.symbol}-${idx}`}
                       variant="outline"
-                      className="transition-all group p-5 border-muted/60 shadow-sm"
+                      className="transition-all group p-4 sm:p-5 border-muted/60 shadow-sm flex flex-col md:flex-row items-stretch md:items-center gap-4 md:gap-0"
                     >
-                      <ItemContent className="gap-1 min-w-[180px]">
-                        <ItemTitle className="text-xl font-black tracking-tight">
+                      <ItemContent className="gap-1 flex-1">
+                        <ItemTitle className="text-lg sm:text-xl font-black tracking-tight">
                           {holding.symbol}
                         </ItemTitle>
-                        <ItemDescription className="text-xs font-medium text-muted-foreground/70">
+                        <ItemDescription className="text-[10px] sm:text-xs font-medium text-muted-foreground/70 truncate max-w-[150px] sm:max-w-none">
                           {holding.name}
                         </ItemDescription>
                       </ItemContent>
 
-                      <div className="flex flex-col items-end gap-1 px-6 w-32 shrink-0 border-l border-muted/50">
-                        <div className="font-black text-lg tabular-nums">
-                          {holding.shares}
+                      <div className="grid grid-cols-3 md:flex items-center gap-2 md:gap-0 border-t md:border-t-0 md:border-l border-muted/50 pt-3 md:pt-0">
+                        {/* Shares & Avg Price */}
+                        <div className="flex flex-col items-start md:items-end gap-1 md:px-6 md:w-32 shrink-0">
+                          <div className="font-black text-sm sm:text-lg tabular-nums">
+                            {holding.shares}
+                          </div>
+                          <div className="text-[9px] sm:text-xs text-muted-foreground uppercase font-black tracking-widest whitespace-nowrap">
+                            {formatCurrency(holding.avgPrice, holding.currency)}
+                          </div>
                         </div>
-                        <div className="text-xs text-muted-foreground uppercase font-black tracking-widest">
-                          {formatCurrency(holding.avgPrice, holding.currency)}
-                        </div>
-                      </div>
 
-                      <div className="flex flex-col items-end gap-1 px-6 w-40 shrink-0 border-l border-muted/50">
-                        <div
-                          className={`font-black text-lg tabular-nums ${holding.unrealizedPnl >= 0 ? "text-emerald-500" : "text-rose-500"}`}
+                        {/* P&L */}
+                        <div className="flex flex-col items-center md:items-end gap-1 md:px-6 md:w-40 shrink-0 border-l md:border-l border-muted/50">
+                          <div
+                            className={`font-black text-sm sm:text-lg tabular-nums ${
+                              (holding.unrealizedPnl !== 0
+                                ? holding.unrealizedPnl
+                                : holding.realizedPnl) >= 0
+                                ? "text-emerald-500"
+                                : "text-rose-500"
+                            }`}
+                          >
+                            {(holding.unrealizedPnl !== 0
+                              ? holding.unrealizedPnl
+                              : holding.realizedPnl) >= 0
+                              ? "+"
+                              : ""}
+                            {formatCurrency(
+                              holding.unrealizedPnl !== 0
+                                ? holding.unrealizedPnl
+                                : holding.realizedPnl,
+                              holding.currency,
+                            )}
+                          </div>
+                          {holding.unrealizedPnl === 0 &&
+                            holding.realizedPnl !== 0 && (
+                              <div className="text-[8px] text-muted-foreground uppercase font-black tracking-widest opacity-40">
+                                Realized
+                              </div>
+                            )}
+                        </div>
+
+                        {/* Live Price Link */}
+                        <a
+                          href={`https://www.bing.com/search?q=site:investing.com+${holding.exchange}+${holding.ticker}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex flex-col items-end gap-1 md:px-6 md:w-40 shrink-0 border-l border-muted/50 hover:bg-muted/50 transition-all cursor-pointer rounded-lg md:rounded-none py-1 md:py-0"
                         >
-                          {holding.unrealizedPnl >= 0 ? "+" : ""}
-                          {formatCurrency(
-                            holding.unrealizedPnl,
-                            holding.currency,
-                          )}
-                        </div>
+                          <div className="font-black text-base sm:text-xl tabular-nums tracking-tighter">
+                            {formatCurrency(holding.price, holding.currency)}
+                          </div>
+                          <div className="text-[8px] sm:text-[9px] text-muted-foreground uppercase font-black tracking-widest opacity-50">
+                            Live Price
+                          </div>
+                        </a>
                       </div>
-
-                      <a
-                        href={`https://www.bing.com/search?q=site:investing.com+${holding.exchange}+${holding.ticker}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex flex-col items-end gap-1 px-6 w-40 shrink-0 border-l border-muted/50 hover:bg-muted/50 transition-all cursor-pointer"
-                      >
-                        <div className="font-black text-xl tabular-nums tracking-tighter">
-                          {formatCurrency(holding.price, holding.currency)}
-                        </div>
-                        <div className="text-[9px] text-muted-foreground uppercase font-black tracking-widest opacity-50">
-                          Live Price
-                        </div>
-                      </a>
                     </Item>
                   ))}
                 </div>

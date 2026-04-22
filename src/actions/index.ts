@@ -98,6 +98,7 @@ export const server = {
           price: pos.mktPrice,
           avgPrice: pos.avgCost || 0,
           unrealizedPnl: pos.unrealizedPnl || 0,
+          realizedPnl: pos.realizedPnl || 0,
           shares: pos.position,
           assetClass: pos.assetClass || "OTHER",
           currency: pos.currency,
