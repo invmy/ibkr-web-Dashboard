@@ -1,5 +1,6 @@
 name = "ibkr-dashboard"
 compatibility_date = "2026-04-12"
+compatibility_flags = ["nodejs_compat"]
 
 
 [[kv_namespaces]]

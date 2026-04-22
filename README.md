@@ -1,12 +1,14 @@
+[![Deploy to Cloudflare Workers](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/invmy/ibkr-web-Dashboard)
+
+After deployment is complete, enter the `secret variable` in the control panel
+
 # Ibkr dashboard
 
 An IBKR dashboard that displays assets and positions in real time with read-only access
 
-![](image.png)
+![alt text](image-1.png)
 
-[![Deploy to Cloudflare Workers](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/invmy/ibkr-web-Dashboard)
-
-After deployment is complete, enter the `secret variable` in the control panel
+![alt text](image.png)
 
 ## Oauth1.0a
 

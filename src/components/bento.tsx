@@ -1,26 +1,5 @@
 import * as React from "react";
-import {
-  PieChart,
-  Pie,
-  Cell,
-  ResponsiveContainer,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  LabelList,
-} from "recharts";
-import {
-  TrendingUp,
-  Wallet,
-  ArrowUpRight,
-  ArrowDownRight,
-  Activity,
-  DollarSign,
-} from "lucide-react";
+import { Wallet, ArrowUpRight, ArrowDownRight, Activity } from "lucide-react";
 
 import {
   Card,
@@ -30,12 +9,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import {
-  type ChartConfig,
-  ChartContainer,
-  ChartTooltip,
-  ChartTooltipContent,
-} from "@/components/ui/chart";
 import { Badge } from "@/components/ui/badge";
 import {
   Item,
@@ -47,10 +20,6 @@ import {
   ItemDescription,
 } from "@/components/ui/item";
 
-const chartConfig = {
-  amount: { label: "金额", color: "var(--chart-1)" },
-} satisfies ChartConfig;
-
 import { useState, useEffect } from "react";
 import { actions } from "astro:actions";
 
@@ -58,35 +27,6 @@ const maskAccountId = (id: string) => {
   if (!id || id.length <= 4) return id;
   return `${id.slice(0, 2)}****${id.slice(-2)}`;
 };
-
-const TradingViewWidget = React.memo(({ symbol }: { symbol: string }) => {
-  const container = React.useRef<HTMLDivElement>(null);
-
-  React.useEffect(() => {
-    if (!container.current) return;
-    container.current.innerHTML =
-      '<div class="tradingview-widget-container__widget"></div>';
-    const script = document.createElement("script");
-    script.src =
-      "https://s3.tradingview.com/external-embedding/embed-widget-single-quote.js";
-    script.type = "text/javascript";
-    script.async = true;
-    script.innerHTML = JSON.stringify({
-      symbol: symbol,
-      colorTheme: "dark",
-      isTransparent: true,
-      locale: "en",
-      width: "100%",
-    });
-    container.current.appendChild(script);
-  }, [symbol]);
-
-  return (
-    <div className="tradingview-widget-container" ref={container}>
-      <div className="tradingview-widget-container__widget"></div>
-    </div>
-  );
-});
 
 export function BentoDashboard() {
   // No detailed render log
@@ -233,6 +173,7 @@ export function BentoDashboard() {
   const currentRealizedProfit = baseLedger.realizedpnl || 0;
   const currentUnrealizedProfit = baseLedger.unrealizedpnl || 0;
   const currentInterest = baseLedger.interest || 0;
+  const currentCash = baseLedger.cashbalance || 0;
 
   // Exchange rate helper: convert position currency to base currency
   const getExchangeRate = (curr: string) => {
@@ -240,7 +181,7 @@ export function BentoDashboard() {
     return ledger[curr]?.exchangerate || 1;
   };
 
-  // Compute pie slices per asset class; accumulate total holdings in base currency
+  // Compute slices per asset class; accumulate total holdings in base currency
   let totalHoldingsBase = 0;
   const currentPieData: any[] =
     portfolioData?.positions?.reduce((acc: any[], pos: any) => {
@@ -256,32 +197,38 @@ export function BentoDashboard() {
         acc.push({
           name: assetClassStr,
           value: mktValueBase,
-          fill: `var(--chart-${acc.length + 1})`,
+          fill: `var(--chart-${(acc.length % 5) + 1})`,
         });
       }
       return acc;
     }, []) || [];
 
-  // Cash = Total Net Liquidation − Total Holdings (base currency)
-  // This approach guarantees: holdings + cash = net liquidation value
-  const derivedCash = currentTotalAssets - totalHoldingsBase;
-  if (derivedCash > 0) {
+  if (currentCash > 0) {
     currentPieData.push({
       name: "CASH",
-      value: derivedCash,
-      fill: "var(--chart-5)",
+      value: currentCash,
+      fill: "var(--chart-2)",
     });
   }
 
-  const currentBarData = Object.keys(ledger)
-    .filter((k) => k !== "BASE")
-    .map((k) => ({
-      currency: k,
-      amount: ledger[k].netliquidationvalue || 0,
-    }))
-    .sort((a, b) => b.amount - a.amount);
+  const getPercentageData = (data: any[]) => {
+    const total = data.reduce((sum, item) => sum + item.value, 0);
+    return data.map((item) => ({
+      ...item,
+      percentage: total > 0 ? (item.value / total) * 100 : 0,
+    }));
+  };
 
-  const currentHoldings =
+  const metrics = [
+    {
+      title: "Asset Allocation",
+      description: "Distribution by Asset Class",
+      data: getPercentageData(currentPieData),
+      icon: <Activity className="w-4 h-4 text-primary" />,
+    },
+  ].filter((c) => c.data.length > 0);
+
+  const holdingsList =
     portfolioData?.positions?.map((pos: any) => ({
       symbol: pos.ticker || pos.contractDesc || pos.conid,
       name: pos.name || pos.contractDesc,
@@ -295,10 +242,27 @@ export function BentoDashboard() {
           : pos.unrealizedPnl.toFixed(2),
       marketValue: formatCurrency(pos.mktValue, pos.currency),
       shares: pos.position,
-      assetClass: pos.assetClass,
-      // Use listingExchange if available, fallback to NASDAQ
-      tvSymbol: `${pos.listingExchange || "NASDAQ"}:${pos.ticker || pos.contractDesc}`,
+      assetClass: pos.assetClass || "OTHER",
+      ticker: pos.ticker || pos.contractDesc,
+      exchange: pos.listingExchange || "NASDAQ",
     })) || [];
+
+  const groupedHoldings = holdingsList.reduce(
+    (acc: Record<string, any[]>, holding: any) => {
+      const group = holding.assetClass;
+      if (!acc[group]) acc[group] = [];
+      acc[group].push(holding);
+      return acc;
+    },
+    {},
+  );
+
+  // Sort each group by PNL (descending)
+  Object.values(groupedHoldings).forEach((holdings) => {
+    holdings.sort((a, b) => b.unrealizedPnlRaw - a.unrealizedPnlRaw);
+  });
+
+  const sortedGroupKeys = Object.keys(groupedHoldings).sort();
 
   return (
     <div className="bg-background min-h-screen">
@@ -382,12 +346,15 @@ export function BentoDashboard() {
               </div>
             </div>
             <div className="flex flex-wrap items-baseline gap-4">
-              <h1 className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-thin tracking-tighter tabular-nums gradient-text line-height-1">
-                {currentTotalAssets.toLocaleString(undefined, {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2,
-                })}
-              </h1>
+              <div className="flex flex-col gap-1">
+                <h1 className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-thin tracking-tighter tabular-nums gradient-text line-height-1">
+                  {currentTotalAssets.toLocaleString(undefined, {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}
+                </h1>
+              </div>
+
               {currentInterest !== 0 && (
                 <Badge
                   variant="outline"
@@ -398,126 +365,61 @@ export function BentoDashboard() {
                 </Badge>
               )}
             </div>
-            <div className="flex gap-6 mt-4">
-              <div className="flex items-center gap-1.5 text-sm font-bold text-emerald-500 bg-emerald-500/5 px-3 py-1.5 rounded-full border border-emerald-500/10">
-                <ArrowUpRight className="w-4 h-4" />
-                <span>
-                  {formatCurrency(currentRealizedProfit, baseLedger.currency)}
-                </span>
-                <span className="text-[9px] opacity-70 uppercase font-black ml-1">
-                  Realized
-                </span>
-              </div>
-              <div className="flex items-center gap-1.5 text-sm font-bold text-emerald-400 bg-emerald-400/5 px-3 py-1.5 rounded-full border border-emerald-400/10">
-                <Activity className="w-4 h-4 text-emerald-500" />
-                <span>
-                  {formatCurrency(currentUnrealizedProfit, baseLedger.currency)}
-                </span>
-                <span className="text-[9px] opacity-70 uppercase font-black ml-1">
-                  Unrealized
-                </span>
-              </div>
-            </div>
           </ItemContent>
         </Item>
 
-        {/* 第二行: 资产比例 (Pie) 与 币种分布 (Bar) */}
-        <Card className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x border-muted/60 shadow-sm overflow-hidden">
-          <div className="p-8 flex flex-col gap-6">
-            <div className="flex flex-col gap-1">
-              <CardTitle className="text-xl font-black tracking-tight flex items-center gap-2">
-                <div className="w-2 h-6 bg-primary rounded-full"></div>
-                Asset Allocation
-              </CardTitle>
-              <CardDescription className="text-xs font-medium uppercase tracking-wider opacity-60">
-                Distribution by Asset Class
-              </CardDescription>
-            </div>
-            <div className="h-[280px] w-full">
-              <ChartContainer config={chartConfig} className="h-full w-full">
-                <PieChart>
-                  <ChartTooltip content={<ChartTooltipContent hideLabel />} />
-                  <Pie
-                    data={currentPieData}
-                    dataKey="value"
-                    nameKey="name"
-                    innerRadius={70}
-                    outerRadius={95}
-                    paddingAngle={2}
-                    strokeWidth={0}
-                  >
-                    {currentPieData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.fill} />
-                    ))}
-                  </Pie>
-                  <Legend
-                    verticalAlign="bottom"
-                    height={40}
-                    iconType="circle"
-                    formatter={(value) => (
-                      <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
-                        {value}
+        {/* Asset Allocation Bento with Progress Bars */}
+        <div className="grid grid-cols-1 gap-6">
+          {metrics.map((metric, idx) => (
+            <Card
+              key={idx}
+              className="p-8 flex flex-col gap-8 border-muted/60 shadow-sm overflow-hidden hover:border-muted-foreground/20 transition-colors"
+            >
+              <div className="flex flex-col gap-1.5">
+                <div className="flex items-center gap-2 mb-1">
+                  <div className="p-2 bg-muted/50 rounded-lg">
+                    {metric.icon}
+                  </div>
+                  <CardTitle className="text-xl font-black tracking-tight">
+                    {metric.title}
+                  </CardTitle>
+                </div>
+                <CardDescription className="text-[10px] font-black uppercase tracking-[0.15em] opacity-40">
+                  {metric.description}
+                </CardDescription>
+              </div>
+              <div className="flex flex-col gap-6">
+                {metric.data.map((item: any, i: number) => (
+                  <div key={i} className="flex flex-col gap-2.5 group">
+                    <div className="flex justify-between items-end">
+                      <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground group-hover:text-foreground transition-colors">
+                        {item.name}
                       </span>
+                      <span className="text-xs font-black tabular-nums">
+                        {formatCurrency(item.value, baseLedger.currency)}
+                      </span>
+                    </div>
+                    {item.name !== "CASH" && (
+                      <div className="h-1 w-full bg-muted/40 rounded-full overflow-hidden">
+                        <div
+                          className="h-full transition-all duration-1000 ease-out"
+                          style={{
+                            backgroundColor: item.fill,
+                            width: `${item.percentage}%`,
+                          }}
+                        />
+                      </div>
                     )}
-                  />
-                </PieChart>
-              </ChartContainer>
-            </div>
-          </div>
-          <div className="p-8 flex flex-col gap-6">
-            <div className="flex flex-col gap-1">
-              <CardTitle className="text-xl font-black tracking-tight flex items-center gap-2">
-                <div className="w-2 h-6 bg-emerald-500 rounded-full"></div>
-                Currency Breakdown
-              </CardTitle>
-              <CardDescription className="text-xs font-medium uppercase tracking-wider opacity-60">
-                Net Liquidation per Currency
-              </CardDescription>
-            </div>
-            <div className="h-[300px] w-full pt-4 pr-10">
-              <ChartContainer config={chartConfig} className="h-full w-full">
-                <BarChart
-                  data={currentBarData}
-                  layout="vertical"
-                  margin={{ left: 0, right: 20 }}
-                  barSize={24}
-                >
-                  <XAxis type="number" hide />
-                  <YAxis
-                    dataKey="currency"
-                    type="category"
-                    tickLine={false}
-                    axisLine={false}
-                    tick={{ fontSize: 12, fontWeight: 900 }}
-                    width={50}
-                  />
-                  <ChartTooltip content={<ChartTooltipContent hideLabel />} />
-                  <Bar
-                    dataKey="amount"
-                    fill="var(--color-amount)"
-                    radius={[0, 4, 4, 0]}
-                  >
-                    <LabelList
-                      dataKey="amount"
-                      position="right"
-                      offset={12}
-                      className="fill-foreground text-[10px] font-black font-mono"
-                      formatter={(value: number) =>
-                        value > 1000
-                          ? `$${(value / 1000).toFixed(1)}k`
-                          : `$${value.toFixed(0)}`
-                      }
-                    />
-                  </Bar>
-                </BarChart>
-              </ChartContainer>
-            </div>
-          </div>
-        </Card>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          ))}
+        </div>
 
-        {/* 第三行开始: 持仓列表 */}
+        {/* Holdings List */}
         <div className="flex flex-col gap-6 mt-4">
-          <div className="flex justify-between items-end px-2">
+          <div className="flex justify-between items-center px-2">
             <div className="flex flex-col gap-1">
               <h2 className="text-3xl font-black tracking-tighter uppercase italic gradient-text">
                 Holdings
@@ -527,7 +429,7 @@ export function BentoDashboard() {
                   variant="outline"
                   className="text-[9px] font-black uppercase tracking-widest border-primary/20 text-primary"
                 >
-                  {currentHoldings.length} ASSETS
+                  {holdingsList.length} ASSETS
                 </Badge>
                 <div className="flex items-center gap-1.5">
                   <span className="relative flex h-2 w-2">
@@ -540,58 +442,84 @@ export function BentoDashboard() {
                 </div>
               </div>
             </div>
+
+            <div className="flex items-center gap-3">
+              <Activity className="w-5 h-5 text-emerald-500" />
+              <div className="flex flex-col items-end">
+                <span
+                  className={`text-2xl font-black tabular-nums ${currentUnrealizedProfit >= 0 ? "text-emerald-500" : "text-rose-400"}`}
+                >
+                  {currentUnrealizedProfit >= 0 ? "+" : ""}
+                  {formatCurrency(currentUnrealizedProfit, baseLedger.currency)}
+                </span>
+                <span className="text-[9px] text-muted-foreground uppercase font-black tracking-widest opacity-40">
+                  Unrealized PNL
+                </span>
+              </div>
+            </div>
           </div>
-          <ItemGroup className="flex flex-col gap-2">
-            {currentHoldings.map((holding, idx) => (
-              <Item
-                key={`${holding.symbol}-${idx}`}
-                variant="outline"
-                className="hover:bg-muted/30 transition-all cursor-pointer group p-5 border-muted/60 shadow-sm"
-              >
-                <ItemContent className="gap-1 min-w-[180px]">
-                  <div className="flex items-center gap-2">
-                    <ItemTitle className="text-xl font-black tracking-tight">
-                      {holding.symbol}
-                    </ItemTitle>
-                    <Badge
-                      variant="secondary"
-                      className="text-[9px] h-4 px-2 font-black uppercase tracking-tighter"
+          <ItemGroup className="flex flex-col gap-8">
+            {sortedGroupKeys.map((assetClass) => (
+              <div key={assetClass} className="flex flex-col gap-4">
+                <div className="flex items-center gap-4 px-2">
+                  <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground/40 whitespace-nowrap">
+                    {assetClass}
+                  </h3>
+                  <div className="h-px w-full bg-gradient-to-r from-muted/80 to-transparent" />
+                </div>
+                <div className="flex flex-col gap-2">
+                  {groupedHoldings[assetClass].map((holding, idx) => (
+                    <Item
+                      key={`${holding.symbol}-${idx}`}
+                      variant="outline"
+                      className="transition-all group p-5 border-muted/60 shadow-sm"
                     >
-                      {holding.assetClass}
-                    </Badge>
-                  </div>
-                  <ItemDescription className="text-xs font-medium text-muted-foreground/70">
-                    {holding.name}
-                  </ItemDescription>
-                </ItemContent>
+                      <ItemContent className="gap-1 min-w-[180px]">
+                        <ItemTitle className="text-xl font-black tracking-tight">
+                          {holding.symbol}
+                        </ItemTitle>
+                        <ItemDescription className="text-xs font-medium text-muted-foreground/70">
+                          {holding.name}
+                        </ItemDescription>
+                      </ItemContent>
 
-                <div className="flex flex-col items-end gap-1 px-6 min-w-32 border-x border-muted/50">
-                  <div className="font-black text-lg tabular-nums">
-                    {holding.shares}
-                  </div>
-                  <div className="text-xs text-muted-foreground uppercase font-black tracking-widest">
-                    {holding.avgPrice}
-                  </div>
-                </div>
+                      <div className="flex flex-col items-end gap-1 px-6 w-32 shrink-0 border-l border-muted/50">
+                        <div className="font-black text-lg tabular-nums">
+                          {holding.shares}
+                        </div>
+                        <div className="text-xs text-muted-foreground uppercase font-black tracking-widest">
+                          {holding.avgPrice}
+                        </div>
+                      </div>
 
-                <div className="flex flex-col items-end gap-1 px-6 min-w-32 border-l border-muted/50 ml-auto">
-                  <div
-                    className={`font-black text-lg tabular-nums ${holding.unrealizedPnlRaw >= 0 ? "text-emerald-500" : "text-rose-500"}`}
-                  >
-                    {holding.unrealizedPnlRaw >= 0 ? "+" : ""}
-                    {holding.unrealizedPnl}
-                  </div>
-                  <div className="text-xs text-muted-foreground uppercase font-black tracking-widest">
-                    {holding.price}
-                  </div>
-                </div>
+                      <div className="flex flex-col items-end gap-1 px-6 w-40 shrink-0 border-l border-muted/50">
+                        <div
+                          className={`font-black text-lg tabular-nums ${holding.unrealizedPnlRaw >= 0 ? "text-emerald-500" : "text-rose-500"}`}
+                        >
+                          {holding.unrealizedPnlRaw >= 0 ? "+" : ""}
+                          {holding.unrealizedPnl}
+                        </div>
+                      </div>
 
-                <div className="flex-1 px-4 hidden md:block max-w-[240px] border-l border-muted/50">
-                  <TradingViewWidget symbol={holding.tvSymbol} />
+                      <a
+                        href={`https://www.bing.com/search?q=site:investing.com+${holding.exchange}+${holding.ticker}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex flex-col items-end gap-1 px-6 w-40 shrink-0 border-l border-muted/50 hover:bg-muted/50 transition-all cursor-pointer"
+                      >
+                        <div className="font-black text-xl tabular-nums tracking-tighter">
+                          {holding.price}
+                        </div>
+                        <div className="text-[9px] text-muted-foreground uppercase font-black tracking-widest opacity-50">
+                          Live Price
+                        </div>
+                      </a>
+                    </Item>
+                  ))}
                 </div>
-              </Item>
+              </div>
             ))}
-            {currentHoldings.length === 0 && (
+            {holdingsList.length === 0 && (
               <div className="text-center py-20 bg-muted/20 rounded-3xl border border-dashed border-muted">
                 <Activity className="w-10 h-10 mx-auto text-muted-foreground/30 mb-4" />
                 <p className="text-sm font-black uppercase tracking-[0.2em] text-muted-foreground/40">
