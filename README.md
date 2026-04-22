@@ -1,6 +1,8 @@
-![](image.png)
-
 # Ibkr dashboard
+
+An IBKR account with read-only access that displays assets and positions in real time without taking up a session window
+
+![](image.png)
 
 [![Deploy to Cloudflare Workers](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/invmy/ibkr-web-Dashboard)
 
