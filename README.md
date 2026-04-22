@@ -1,6 +1,6 @@
 # Ibkr dashboard
 
-An IBKR account with read-only access that displays assets and positions in real time without taking up a session window
+An IBKR dashboard that displays assets and positions in real time with read-only access
 
 ![](image.png)
 
@@ -40,6 +40,8 @@ base64 encode to clip
 ```
 
 ## Add secrets
+
+enter the `secret variable` in the control panel
 
 ## Commands
 
