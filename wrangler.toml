@@ -1,0 +1,10 @@
+name = "ibkr-dashboard"
+compatibility_date = "2026-04-12"
+
+
+[[kv_namespaces]]
+binding = "KV"
+
+
+[observability]
+enabled = true
